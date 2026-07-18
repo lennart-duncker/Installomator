@@ -595,6 +595,20 @@ installAppWithPath() { # $1: path to app to install in $targetDir $2: path to fo
             chown -R root:wheel "$targetDir/$appName"
         fi
 
+        # Remove the com.apple.quarantine attribute from the freshly installed app.
+        # The app has already passed spctl signature + Team ID verification above
+        # (exit 5 on mismatch), so clearing it does NOT weaken Gatekeeper. It only
+        # removes the quarantine flag that some vendors bake into the downloaded
+        # archive, which otherwise triggers a "cannot be opened / Apple cannot check
+        # it for malicious software" Gatekeeper prompt on first launch — a prompt that
+        # cannot be dismissed in a headless / LaunchDaemon (MDM) deployment and blocks
+        # the user. See #1715 and #2414.
+        if [[ -n $folderPath ]]; then
+            xattr -dr com.apple.quarantine "$targetDir/$folderName" 2>/dev/null
+        else
+            xattr -dr com.apple.quarantine "$targetDir/$appName" 2>/dev/null
+        fi
+
     elif [[ ! -z $CLIInstaller ]]; then
         mountname=$(dirname $appPath)
         printlog "CLIInstaller exists, running installer command $mountname/$CLIInstaller $CLIArguments" INFO
